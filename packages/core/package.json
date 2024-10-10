@@ -1,0 +1,25 @@
+{
+  "name": "@maybe-remote/core",
+  "version": "0.0.1",
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "typings": "./dist/index.d.ts",
+  "private": true,
+  "nx": {
+    "name": "core",
+    "targets": {
+      "test": {
+        "executor": "@nx/vite:test",
+        "outputs": [
+          "{options.reportsDirectory}"
+        ],
+        "options": {
+          "reportsDirectory": "../../coverage/packages/core"
+        }
+      }
+    }
+  }
+}
