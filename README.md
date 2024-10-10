@@ -1,90 +1,87 @@
-# MaybeRemote
+# Maybe-Remote
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Utility libraries for simplified and type-safe communication with Workers, SharedWorkers and more.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
-
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/js?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
-
-## Finish your CI setup
-
-[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/UlswaGTojt)
-
-
-## Generate a library
+## Installation
 
 ```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
+npm i -S @maybe-remote/core
 ```
 
-## Run tasks
+## @maybe-remote/core
 
-To build the library use:
+By default, maybe-remote will handle both async functions (functions that return a `Promise` or `PromiseLike`) and async generators (or any function that returns an `AsyncIterable`). If you'd like to handle [RxJS](https://rxjs.dev) `Observable` as well, have a look at [`@maybe-remote/rxjs`](#maybe-remote-rxjs)
 
-```sh
-npx nx build pkg1
+Basic usage:
+
+**Step 1**: Create your service definition. Basically create any object with some methods on it, or IMO, it's nicer to create a single module file that exports your methods. There are some rules to this:
+
+1. Service functions/methods that return a `Promise` or `PromiseLike` must have a name starting with `get`
+2. Service functions/methods that return an `AsyncIterable` must have a name starting with `iterate`.
+
+This is because the `Proxy` that we're using to create the client and forward messages only really has the name of the method to go off of to decide what to return.
+
+```ts
+// my-service.ts
+
+export async function getGreeting(name: string, delay = 1000) {
+  // add a little delay for some wow factor!! Ooo! Aaaah!!
+  await new Promise((resolve) => setTimeout(resolve, delay));
+  return `Hello, ${name}!`;
+}
+
+export async function* iterateDelayedValues(
+  ...delayedValues: { delay: number; value: string }[]
+) {
+  for (const { delay, value } of delayedValues) {
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    yield value;
+  }
+}
 ```
 
-To run any task with Nx use:
+**Step 2**: Create your service... in this case we'll use a worker. You just need to supply the postMessage target (the thing with `postMessage`, `addEventListener`, and `removeEventListener` on it, like `window`, `globalThis`, `self`, `BroadcastChannel` instance, et al) and the service definition, this is the object with all of your service methods on it from step 1 above.
 
-```sh
-npx nx <target> <project-name>
+```ts
+// my-worker.ts
+import { createPostMessageService } from '@maybe-remote/core';
+import * as ServiceDefinition from './my-service.ts';
+
+createPostMessageService({
+  target: globalThis,
+  def: ServiceDefinition,
+});
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+**Step 3**: Start your worker and create your client! With this you'll need to get the _type information_ for your service definition, **but ONLY the type information**.
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+```ts
+// client.ts
+import { createPostMessageClient } from '@maybe-remote/core';
+import type * as ServiceDefinition from './my-service.ts';
 
-## Versioning and releasing
+const worker = new Worker('./dist/my-worker.js');
 
-To version and release the library use
+const client = createPostMessageClient<ServiceDefinition>({
+  target: worker,
+});
 
-```
-npx nx release
-```
+async function main() {
+  const greeting = await client.getGreeting('World');
+  console.log(greeting); // "Hello, World!"
 
-Pass `--dry-run` to see what would happen without actually releasing the library.
+  const delayedValues = [
+    { delay: 100, value: 'One' },
+    { delay: 1000, value: 'Two' },
+    { delay: 10, value: 'Three' },
+  ];
 
-[Learn more about Nx release &raquo;](hhttps://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Keep TypeScript project references up to date
-
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
-
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
-
-```sh
-npx nx sync
-```
-
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
-
-```sh
-npx nx sync:check
+  for await (const value of client.iterateDelayedValues(delayedValues)) {
+    console.log(value); // Logs the values with delays!
+  }
+}
 ```
 
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
+## @maybe-remote/rxjs
 
-
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/nx-api/js?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+TODO: Still building this out.
