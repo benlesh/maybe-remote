@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 
+// This tests returning a promise from a service method
 test('Enter name and get greeting', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Name').fill('Ben');
@@ -14,6 +15,7 @@ test('Enter name and get greeting', async ({ page }) => {
   expect(text2).toBe('Hello, Jerry!');
 });
 
+// This tests async iteration over a service method
 test('Enter numbers to add and get sums', async ({ page }) => {
   await page.goto('/');
 
