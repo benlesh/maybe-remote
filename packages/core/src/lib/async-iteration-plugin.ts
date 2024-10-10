@@ -51,6 +51,8 @@ export interface AsyncIteratorError {
 }
 
 export function asyncIterationServicePlugin() {
+  const iterators = new Map<string, AsyncIterator<any>>();
+
   return (
     message:
       | AsyncIteratorRequest
@@ -60,8 +62,6 @@ export function asyncIterationServicePlugin() {
     connection: ServiceConnection,
     serviceDefinition: ServiceDefinition
   ) => {
-    const iterators = new Map<string, AsyncIterator<any>>();
-
     switch (message.type) {
       case 'async-iterator-request': {
         const { iteratorId, method, params } = message.payload;
@@ -181,6 +181,10 @@ export function asyncIterationClientPlugin(
   method: string,
   connection: ServiceConnection
 ) {
+  if (!method.startsWith('iterate')) {
+    return;
+  }
+
   const deferreds: Deferred<IteratorResult<any>>[] = [];
 
   return (...params: any[]) => {
@@ -236,6 +240,10 @@ export function asyncIterationClientPlugin(
     });
 
     return {
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+
       next(value: any) {
         const deferred = new Deferred<IteratorResult<any>>();
         deferreds.push(deferred);

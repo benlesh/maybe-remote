@@ -3,8 +3,8 @@
   "compileOnSave": false,
   "files": [],
   "references": [
-    {
-      "path": "./packages/core"
-    }
+    { "path": "./packages/core" },
+    { "path": "./packages/demo-app-e2e" },
+    { "path": "./packages/demo-app" }
   ]
 }

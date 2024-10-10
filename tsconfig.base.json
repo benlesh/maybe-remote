@@ -13,9 +13,9 @@
     "importHelpers": true,
     "incremental": true,
     "isolatedModules": true,
-    "lib": ["es2022"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "lib": ["ESNext", "DOM"],
+    "module": "ESNext",
+    // "moduleResolution": "NodeNext",
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
@@ -28,7 +28,11 @@
     "skipLibCheck": true,
     "sourceMap": false,
     "strict": true,
-    "target": "es2022",
-    "verbatimModuleSyntax": false
+    "target": "ESNext",
+    "verbatimModuleSyntax": false,
+    "rootDir": ".",
+    "paths": {
+      "@maybe-remote/core": ["./packages/core/src/index.ts"]
+    }
   }
 }

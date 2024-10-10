@@ -1,0 +1,12 @@
+{
+  "name": "demo-app",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/demo-app/src",
+  "projectType": "application",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project demo-app --web",
+  "targets": {},
+  "implicitDependencies": [
+    "core"
+  ]
+}
