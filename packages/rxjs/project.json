@@ -1,0 +1,19 @@
+{
+  "name": "rxjs",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/rxjs/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/rxjs",
+        "main": "packages/rxjs/src/index.ts",
+        "tsConfig": "packages/rxjs/tsconfig.lib.json",
+        "assets": ["packages/rxjs/*.md"]
+      }
+    }
+  }
+}

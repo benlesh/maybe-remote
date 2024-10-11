@@ -15,7 +15,6 @@
     "isolatedModules": true,
     "lib": ["ESNext", "DOM"],
     "module": "ESNext",
-    // "moduleResolution": "NodeNext",
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
@@ -32,7 +31,8 @@
     "verbatimModuleSyntax": false,
     "rootDir": ".",
     "paths": {
-      "@maybe-remote/core": ["./packages/core/src/index.ts"]
+      "@maybe-remote/core": ["packages/core/src/index.ts"],
+      "@maybe-remote/rxjs": ["packages/rxjs/src/index.ts"]
     }
   }
 }

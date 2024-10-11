@@ -5,6 +5,7 @@
   "references": [
     { "path": "./packages/core" },
     { "path": "./packages/demo-app-e2e" },
-    { "path": "./packages/demo-app" }
+    { "path": "./packages/demo-app" },
+    { "path": "./packages/rxjs" }
   ]
 }

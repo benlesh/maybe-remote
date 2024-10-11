@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
     "jsx": "react-jsx",
     "allowJs": false,
     "esModuleInterop": false,
@@ -10,6 +11,7 @@
   "files": [],
   "include": [],
   "references": [
+    { "path": "../rxjs" },
     { "path": "../core" },
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.spec.json" }
