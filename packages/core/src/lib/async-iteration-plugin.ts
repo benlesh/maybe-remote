@@ -50,6 +50,13 @@ export interface AsyncIteratorError {
   };
 }
 
+export interface AsyncIteratorGC {
+  type: 'async-iterator-gc';
+  payload: {
+    iteratorId: string;
+  };
+}
+
 export function asyncIterationServicePlugin() {
   const iterators = new Map<string, AsyncIterator<any>>();
 
@@ -58,7 +65,8 @@ export function asyncIterationServicePlugin() {
       | AsyncIteratorRequest
       | AsyncIteratorNext
       | AsyncIteratorThrow
-      | AsyncIteratorReturn,
+      | AsyncIteratorReturn
+      | AsyncIteratorGC,
     connection: ServiceConnection,
     serviceDefinition: ServiceDefinition
   ) => {
@@ -171,123 +179,159 @@ export function asyncIterationServicePlugin() {
 
         return true;
       }
+      case 'async-iterator-gc': {
+        const { iteratorId } = message.payload;
+        iterators.delete(iteratorId);
+        return true;
+      }
     }
 
     return false;
   };
 }
 
-export function asyncIterationClientPlugin(
-  method: string,
-  connection: ServiceConnection
-) {
-  if (!method.startsWith('iterate')) {
-    return;
-  }
+export function asyncIterationClientPlugin() {
+  const refs = new Map<string, WeakRef<AsyncIterator<any>>>();
 
-  const deferreds: Deferred<IteratorResult<any>>[] = [];
+  const cleanRefs = (connection: ServiceConnection) => {
+    for (const [iteratorId, ref] of refs) {
+      if (!ref.deref()) {
+        refs.delete(iteratorId);
+        connection.send({
+          type: 'async-iterator-gc',
+          payload: {
+            iteratorId,
+          },
+        });
+      }
+    }
+  };
 
-  return (...params: any[]) => {
-    const iteratorId = crypto.randomUUID();
+  let scheduledCleanRefs = 0;
+  const scheduleCleanRefs = (connection: ServiceConnection) => {
+    if (scheduledCleanRefs !== 0 || refs.size === 0) return;
 
-    const dispose = connection.onMessage(
-      (message: AsyncIteratorResult | AsyncIteratorError) => {
-        if (message.type === 'async-iterator-result') {
-          if (message.payload.iteratorId === iteratorId) {
-            const { value, done } = message.payload;
+    scheduledCleanRefs = requestIdleCallback(() => {
+      scheduledCleanRefs = 0;
+      cleanRefs(connection);
+    });
+  };
 
-            if (done) {
-              dispose();
+  return (method: string, connection: ServiceConnection) => {
+    scheduleCleanRefs(connection);
+
+    if (!method.startsWith('iterate')) {
+      return;
+    }
+
+    const deferreds: Deferred<IteratorResult<any>>[] = [];
+
+    return (...params: any[]) => {
+      const iteratorId = crypto.randomUUID();
+
+      const dispose = connection.onMessage(
+        (message: AsyncIteratorResult | AsyncIteratorError) => {
+          if (message.type === 'async-iterator-result') {
+            if (message.payload.iteratorId === iteratorId) {
+              const { value, done } = message.payload;
+
+              if (done) {
+                dispose();
+                for (const deferred of deferreds) {
+                  deferred.resolve({
+                    value,
+                    done,
+                  });
+                }
+                deferreds.length = 0;
+                return;
+              }
+
+              const deferred = deferreds.shift();
+
+              if (!deferred) {
+                throw new Error('Unexpected iterator result');
+              }
+
+              deferred.resolve({
+                value,
+                done,
+              });
+            }
+          } else if (message.type === 'async-iterator-error') {
+            if (message.payload.iteratorId === iteratorId) {
               for (const deferred of deferreds) {
-                deferred.resolve({
-                  value,
-                  done,
-                });
+                deferred.reject(new Error(message.payload.error));
               }
               deferreds.length = 0;
-              return;
             }
-
-            const deferred = deferreds.shift();
-
-            if (!deferred) {
-              throw new Error('Unexpected iterator result');
-            }
-
-            deferred.resolve({
-              value,
-              done,
-            });
-          }
-        } else if (message.type === 'async-iterator-error') {
-          if (message.payload.iteratorId === iteratorId) {
-            for (const deferred of deferreds) {
-              deferred.reject(new Error(message.payload.error));
-            }
-            deferreds.length = 0;
           }
         }
-      }
-    );
+      );
 
-    connection.send({
-      type: 'async-iterator-request',
-      payload: {
-        iteratorId,
-        method,
-        params,
-      },
-    });
+      connection.send({
+        type: 'async-iterator-request',
+        payload: {
+          iteratorId,
+          method,
+          params,
+        },
+      });
 
-    return {
-      [Symbol.asyncIterator]() {
-        return this;
-      },
+      const iterator = {
+        [Symbol.asyncIterator]() {
+          return this;
+        },
 
-      next(value: any) {
-        const deferred = new Deferred<IteratorResult<any>>();
-        deferreds.push(deferred);
+        next(value: any) {
+          const deferred = new Deferred<IteratorResult<any>>();
+          deferreds.push(deferred);
 
-        connection.send({
-          type: 'async-iterator-next',
-          payload: {
-            iteratorId,
-            value,
-          },
-        });
+          connection.send({
+            type: 'async-iterator-next',
+            payload: {
+              iteratorId,
+              value,
+            },
+          });
 
-        return deferred.promise;
-      },
+          return deferred.promise;
+        },
 
-      throw(reason: any) {
-        const deferred = new Deferred<IteratorResult<any>>();
-        deferreds.push(deferred);
+        throw(reason: any) {
+          const deferred = new Deferred<IteratorResult<any>>();
+          deferreds.push(deferred);
 
-        connection.send({
-          type: 'async-iterator-throw',
-          payload: {
-            iteratorId,
-            reason: reason instanceof Error ? reason.message : reason,
-          },
-        });
+          connection.send({
+            type: 'async-iterator-throw',
+            payload: {
+              iteratorId,
+              reason: reason instanceof Error ? reason.message : reason,
+            },
+          });
 
-        return deferred.promise;
-      },
+          return deferred.promise;
+        },
 
-      return(value: any) {
-        const deferred = new Deferred<IteratorResult<any>>();
-        deferreds.push(deferred);
+        return(value: any) {
+          const deferred = new Deferred<IteratorResult<any>>();
+          deferreds.push(deferred);
 
-        connection.send({
-          type: 'async-iterator-return',
-          payload: {
-            iteratorId,
-            value,
-          },
-        });
+          connection.send({
+            type: 'async-iterator-return',
+            payload: {
+              iteratorId,
+              value,
+            },
+          });
 
-        return deferred.promise;
-      },
+          return deferred.promise;
+        },
+      };
+
+      refs.set(iteratorId, new WeakRef(iterator));
+
+      return iterator;
     };
   };
 }
