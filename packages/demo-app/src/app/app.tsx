@@ -113,7 +113,7 @@ export function TestRxJSObservables() {
 
     const valuesToSum = values.split('+').map((v) => parseInt(v.trim()));
 
-    const sums$ = client.whenSummedValuesArePushed(...valuesToSum);
+    const sums$ = client.streamSummedValues(...valuesToSum);
 
     subscriptionRef.current?.unsubscribe();
     setSums([]);

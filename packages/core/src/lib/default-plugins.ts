@@ -11,6 +11,6 @@ export const defaultServicePlugins: ServicePlugin[] = [
 ];
 
 export const defaultClientPlugins: ClientPlugin[] = [
-  asyncIterationClientPlugin,
+  asyncIterationClientPlugin(),
   promiseClientPlugin,
 ];

@@ -94,13 +94,13 @@ Assuming you're already using `@maybe-remote/core` as shown above, adding RxJS o
 npm i -S @maybe-remote/rxjs rxjs
 ```
 
-**Step 2**: Write a function that returns an RxJS observable. The method should be prefixed with `when`. For example `whenDataArrives` or the like.
+**Step 2**: Write a function that returns an RxJS observable. The method should be prefixed with `stream`. For example `streamMyData` or the like.
 
 ```ts
 // my-service.ts
 import { interval } from 'rxjs';
 
-export function whenIntervalFires(delay: number) {
+export function streamInterval(delay: number) {
   return interval(delay);
 }
 ```
@@ -137,5 +137,5 @@ const client = createPostMessageClient<ServiceDefinition>({
 });
 
 // Logs a number once a second for 5 numbers
-client.whenInterval(1000).pipe(take(5)).subscribe(console.log);
+client.streamInterval(1000).pipe(take(5)).subscribe(console.log);
 ```

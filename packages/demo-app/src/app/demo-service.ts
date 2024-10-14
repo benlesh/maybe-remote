@@ -12,6 +12,6 @@ export async function* iterateProgressiveSums(...numbers: number[]) {
   }
 }
 
-export function whenSummedValuesArePushed(...numbers: number[]) {
+export function streamSummedValues(...numbers: number[]) {
   return from(numbers).pipe(scan((sum, value) => sum + value, 0));
 }

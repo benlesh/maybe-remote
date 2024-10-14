@@ -240,7 +240,7 @@ export function rxjsClientPlugin() {
   return (method: string, connection: ServiceConnection) => {
     scheduleCleanRefs(connection);
 
-    if (method.startsWith('when')) {
+    if (method.startsWith('stream')) {
       return (...params: any[]) => {
         const subscriptionId = crypto.randomUUID();
 
