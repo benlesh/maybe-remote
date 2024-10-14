@@ -6,5 +6,5 @@ import * as ServiceDefinitions from './demo-service';
 createPostMessageService({
   target: self,
   def: ServiceDefinitions,
-  servicePlugins: [rxjsServicePlugin()],
+  plugins: [rxjsServicePlugin()],
 });
