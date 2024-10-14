@@ -116,7 +116,7 @@ import { rxjsServicePlugin } from '@maybe-remote/rxjs';
 createPostMessageService({
   target: globalThis,
   def: ServiceDefinition,
-  servicePlugins: [rxjsServicePlugin()],
+  plugins: [rxjsServicePlugin()],
 });
 ```
 

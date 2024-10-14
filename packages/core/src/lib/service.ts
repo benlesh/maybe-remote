@@ -8,12 +8,12 @@ import { ServicePlugin, ServiceConnection, ServiceDefinition } from './types';
 export function createPostMessageService(options: {
   target: PostMessageTarget;
   def: ServiceDefinition;
-  servicePlugins?: ServicePlugin[];
+  plugins?: ServicePlugin[];
 }) {
-  const { target, def, servicePlugins = [] } = options;
+  const { target, def, plugins = [] } = options;
 
   const connection = new PostMessageConnection(target);
-  return new Service(connection, def, servicePlugins);
+  return new Service(connection, def, plugins);
 }
 
 export class Service {
