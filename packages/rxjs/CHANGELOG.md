@@ -1,3 +1,7 @@
+## 0.0.5 (2024-10-14)
+
+This was a version bump only for rxjs to align it with other projects, there were no code changes.
+
 ## 0.0.4 (2024-10-14)
 
 This was a version bump only for rxjs to align it with other projects, there were no code changes.

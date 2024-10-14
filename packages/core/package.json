@@ -1,12 +1,15 @@
 {
   "name": "@maybe-remote/core",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "dependencies": {
     "tslib": "^2.3.0"
   },
   "type": "commonjs",
   "main": "./dist/index.js",
   "typings": "./dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "nx": {
     "name": "core",
     "targets": {
