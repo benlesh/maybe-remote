@@ -37,9 +37,9 @@ export function createClient<Def extends object>(options: {
         }
 
         for (const plugin of plugins) {
-          const result = plugin(prop, connection);
-          if (result !== undefined) {
-            return result;
+          const handler = plugin.findHandler(prop, connection);
+          if (handler !== undefined) {
+            return handler;
           }
         }
       }

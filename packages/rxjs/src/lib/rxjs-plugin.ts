@@ -1,4 +1,5 @@
 import {
+  ClientPlugin,
   ServiceConnection,
   ServiceDefinition,
   ServicePlugin,
@@ -59,55 +60,52 @@ export interface RxJSComplete {
   };
 }
 
-export function rxjsServicePlugin(): ServicePlugin {
-  const observables = new Map<string, Observable<any>>();
-  const observableSubscriptionIds = new Map<string, Set<string>>();
-  const subscriptionObservableIds = new Map<string, string>();
-  const subscriptions = new Map<string, Subscription>();
+export class RxJSServicePlugin implements ServicePlugin {
+  private observables = new Map<string, Observable<any>>();
+  private observableSubscriptionIds = new Map<string, Set<string>>();
+  private subscriptionObservableIds = new Map<string, string>();
+  private subscriptions = new Map<string, Subscription>();
 
-  const trackSubscription = (
+  private trackSubscription(
     observableId: string,
     subscriptionId: string,
     subscription: Subscription
-  ) => {
+  ) {
     const subscriptionIds =
-      observableSubscriptionIds.get(observableId) ?? new Set();
+      this.observableSubscriptionIds.get(observableId) ?? new Set();
     subscriptionIds.add(subscriptionId);
-    observableSubscriptionIds.set(observableId, subscriptionIds);
-    subscriptions.set(subscriptionId, subscription);
-  };
+    this.observableSubscriptionIds.set(observableId, subscriptionIds);
+    this.subscriptions.set(subscriptionId, subscription);
+  }
 
-  const untrackSubscription = (subscriptionId: string) => {
-    const observableId = subscriptionObservableIds.get(subscriptionId);
+  private untrackSubscription(subscriptionId: string) {
+    const observableId = this.subscriptionObservableIds.get(subscriptionId);
     if (observableId) {
-      subscriptionObservableIds.delete(subscriptionId);
-      const subscriptionIds = observableSubscriptionIds.get(observableId);
+      this.subscriptionObservableIds.delete(subscriptionId);
+      const subscriptionIds = this.observableSubscriptionIds.get(observableId);
       if (subscriptionIds) {
         subscriptionIds.delete(subscriptionId);
         if (subscriptionIds.size === 0) {
-          observableSubscriptionIds.delete(observableId);
+          this.observableSubscriptionIds.delete(observableId);
         }
       }
     }
-    subscriptions.delete(subscriptionId);
-  };
+    this.subscriptions.delete(subscriptionId);
+  }
 
-  const trackObservable = (
-    observableId: string,
-    observable: Observable<any>
-  ) => {
-    observables.set(observableId, observable);
-  };
+  private trackObservable(observableId: string, observable: Observable<any>) {
+    this.observables.set(observableId, observable);
+  }
 
-  const untrackObservable = (observableId: string) => {
-    observables.delete(observableId);
-  };
+  private untrackObservable(observableId: string) {
+    this.observables.delete(observableId);
+  }
 
-  return ((
+  handleMessage(
     message: RxJSGetObservable | RxJSSubscribe | RxJSUnsubscribe | RxJSGC,
     connection: ServiceConnection,
     serviceDefintion: ServiceDefinition
-  ): boolean => {
+  ): boolean {
     switch (message.type) {
       case 'rxjs-get': {
         const { observableId, method, params } = message.payload;
@@ -126,21 +124,21 @@ export function rxjsServicePlugin(): ServicePlugin {
 
         const observable = fn(...params);
 
-        trackObservable(observableId, observable);
+        this.trackObservable(observableId, observable);
 
         return true;
       }
 
       case 'rxjs-subscribe': {
         const { observableId, subscriptionId } = message.payload;
-        const observable = observables.get(observableId);
+        const observable = this.observables.get(observableId);
 
         if (!observable) {
           throw new Error(`Observable with id ${observableId} not found`);
         }
 
         const subscription = observable.subscribe({
-          next(value) {
+          next: (value) => {
             connection.send({
               type: 'rxjs-next',
               payload: {
@@ -149,10 +147,12 @@ export function rxjsServicePlugin(): ServicePlugin {
               },
             });
           },
-          error(error) {
-            observableSubscriptionIds.get(observableId)?.delete(subscriptionId);
-            subscriptions.delete(subscriptionId);
-            subscriptionObservableIds.delete(subscriptionId);
+          error: (error) => {
+            this.observableSubscriptionIds
+              .get(observableId)
+              ?.delete(subscriptionId);
+            this.subscriptions.delete(subscriptionId);
+            this.subscriptionObservableIds.delete(subscriptionId);
             connection.send({
               type: 'rxjs-error',
               payload: {
@@ -161,10 +161,12 @@ export function rxjsServicePlugin(): ServicePlugin {
               },
             });
           },
-          complete() {
-            observableSubscriptionIds.get(observableId)?.delete(subscriptionId);
-            subscriptions.delete(subscriptionId);
-            subscriptionObservableIds.delete(subscriptionId);
+          complete: () => {
+            this.observableSubscriptionIds
+              .get(observableId)
+              ?.delete(subscriptionId);
+            this.subscriptions.delete(subscriptionId);
+            this.subscriptionObservableIds.delete(subscriptionId);
             connection.send({
               type: 'rxjs-complete',
               payload: {
@@ -174,20 +176,20 @@ export function rxjsServicePlugin(): ServicePlugin {
           },
         });
 
-        trackSubscription(observableId, subscriptionId, subscription);
+        this.trackSubscription(observableId, subscriptionId, subscription);
 
         return true;
       }
 
       case 'rxjs-unsubscribe': {
         const { subscriptionId } = message.payload;
-        const subscription = subscriptions.get(subscriptionId);
+        const subscription = this.subscriptions.get(subscriptionId);
 
         if (!subscription) {
           throw new Error(`Subscription with id ${subscriptionId} not found`);
         }
 
-        untrackSubscription(subscriptionId);
+        this.untrackSubscription(subscriptionId);
 
         subscription.unsubscribe();
         return true;
@@ -195,23 +197,27 @@ export function rxjsServicePlugin(): ServicePlugin {
 
       case 'rxjs-gc': {
         const { observableIds } = message.payload;
-        observableIds.forEach(untrackObservable);
+        for (const observableId of observableIds) {
+          this.untrackObservable(observableId);
+        }
         return true;
       }
     }
 
     return false;
-  }) as any;
+  }
 }
 
-export function rxjsClientPlugin() {
-  const refs = new Map<string, WeakRef<Observable<any>>>();
+export const rxjsServicePlugin = new RxJSServicePlugin();
 
-  const cleanRefs = (connection: ServiceConnection) => {
+export class RxJSClientPlugin implements ClientPlugin {
+  private refs = new Map<string, WeakRef<Observable<any>>>();
+
+  private cleanRefs(connection: ServiceConnection) {
     let observableIds: string[] | null = null;
-    for (const [subscriptionId, ref] of refs) {
+    for (const [subscriptionId, ref] of this.refs) {
       if (!ref.deref()) {
-        refs.delete(subscriptionId);
+        this.refs.delete(subscriptionId);
         observableIds ??= [];
         observableIds.push(subscriptionId);
       }
@@ -225,20 +231,20 @@ export function rxjsClientPlugin() {
         },
       });
     }
-  };
+  }
 
-  let scheduledCleanRefs = 0;
-  const scheduleCleanRefs = (connection: ServiceConnection) => {
-    if (scheduledCleanRefs !== 0 || refs.size === 0) return;
+  private scheduledCleanRefs = 0;
+  private scheduleCleanRefs(connection: ServiceConnection) {
+    if (this.scheduledCleanRefs !== 0 || this.refs.size === 0) return;
 
-    scheduledCleanRefs = requestIdleCallback(() => {
-      scheduledCleanRefs = 0;
-      cleanRefs(connection);
+    this.scheduledCleanRefs = requestIdleCallback(() => {
+      this.scheduledCleanRefs = 0;
+      this.cleanRefs(connection);
     });
-  };
+  }
 
-  return (method: string, connection: ServiceConnection) => {
-    scheduleCleanRefs(connection);
+  findHandler(method: string, connection: ServiceConnection) {
+    this.scheduleCleanRefs(connection);
 
     if (method.startsWith('stream')) {
       return (...params: any[]) => {
@@ -295,12 +301,14 @@ export function rxjsClientPlugin() {
           });
         });
 
-        refs.set(subscriptionId, new WeakRef(observable));
+        this.refs.set(subscriptionId, new WeakRef(observable));
 
         return observable;
       };
     }
 
     return;
-  };
+  }
 }
+
+export const rxjsClientPlugin = new RxJSClientPlugin();

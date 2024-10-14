@@ -116,7 +116,7 @@ import { rxjsServicePlugin } from '@maybe-remote/rxjs';
 createPostMessageService({
   target: globalThis,
   def: ServiceDefinition,
-  plugins: [rxjsServicePlugin()],
+  plugins: [rxjsServicePlugin],
 });
 ```
 
@@ -133,7 +133,7 @@ const worker = new Worker('./dist/my-worker.js');
 
 const client = createPostMessageClient<ServiceDefinition>({
   target: worker,
-  plugins: [rxjsClientPlugin()],
+  plugins: [rxjsClientPlugin],
 });
 
 // Logs a number once a second for 5 numbers

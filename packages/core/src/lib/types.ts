@@ -15,11 +15,13 @@ export interface ServiceDefinition {
   [key: string]: (...params: any[]) => any;
 }
 
-export type ServicePlugin = (
-  message: TransportMessage,
-  connection: ServiceConnection,
-  serviceDefinition: ServiceDefinition
-) => boolean;
+export interface ServicePlugin {
+  handleMessage(
+    message: TransportMessage,
+    connection: ServiceConnection,
+    serviceDefinition: ServiceDefinition
+  ): boolean;
+}
 
 export interface UnknownMethodError {
   type: 'unknown-method-error';
@@ -28,7 +30,6 @@ export interface UnknownMethodError {
   };
 }
 
-export type ClientPlugin = (
-  method: string,
-  connection: ServiceConnection
-) => any;
+export interface ClientPlugin {
+  findHandler(method: string, connection: ServiceConnection): any;
+}

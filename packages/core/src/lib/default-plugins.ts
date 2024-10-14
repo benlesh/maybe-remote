@@ -6,11 +6,11 @@ import { promiseClientPlugin, promiseServicePlugin } from './promise-plugin';
 import { ClientPlugin, ServicePlugin } from './types';
 
 export const defaultServicePlugins: ServicePlugin[] = [
-  promiseServicePlugin as ServicePlugin,
-  asyncIterationServicePlugin() as ServicePlugin,
+  promiseServicePlugin,
+  asyncIterationServicePlugin,
 ];
 
 export const defaultClientPlugins: ClientPlugin[] = [
-  asyncIterationClientPlugin(),
   promiseClientPlugin,
+  asyncIterationClientPlugin,
 ];

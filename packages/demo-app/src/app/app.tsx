@@ -11,7 +11,7 @@ const worker = new DemoWorker();
 
 const client = createPostMessageClient<typeof DemoService>({
   target: worker,
-  plugins: [rxjsClientPlugin()],
+  plugins: [rxjsClientPlugin],
 });
 
 export function App() {

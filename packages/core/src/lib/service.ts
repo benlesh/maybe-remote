@@ -26,7 +26,7 @@ export class Service {
   private readonly handleMessage = (message: any) => {
     const { connection, serviceDefinition } = this;
     for (const plugin of this.plugins) {
-      if (plugin(message, connection, serviceDefinition)) {
+      if (plugin.handleMessage(message, connection, serviceDefinition)) {
         return;
       }
     }

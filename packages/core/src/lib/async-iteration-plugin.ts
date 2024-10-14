@@ -1,4 +1,9 @@
-import { ServiceConnection, ServiceDefinition } from './types';
+import type {
+  ServiceConnection,
+  ServiceDefinition,
+  ServicePlugin,
+  ClientPlugin,
+} from './types';
 
 export interface AsyncIteratorRequest {
   type: 'async-iterator-request';
@@ -57,19 +62,20 @@ export interface AsyncIteratorGC {
   };
 }
 
-export function asyncIterationServicePlugin() {
-  const iterators = new Map<string, AsyncIterator<any>>();
+export class AsyncIterationServicePlugin implements ServicePlugin {
+  private iterators = new Map<string, AsyncIterator<any>>();
 
-  return (
+  handleMessage(
     message:
       | AsyncIteratorRequest
       | AsyncIteratorNext
       | AsyncIteratorThrow
       | AsyncIteratorReturn
-      | AsyncIteratorGC,
+      | AsyncIteratorGC
+      | { type: ''; payload: any },
     connection: ServiceConnection,
     serviceDefinition: ServiceDefinition
-  ) => {
+  ): boolean {
     switch (message.type) {
       case 'async-iterator-request': {
         const { iteratorId, method, params } = message.payload;
@@ -86,12 +92,12 @@ export function asyncIterationServicePlugin() {
         }
 
         const iterator = fn(...params);
-        iterators.set(iteratorId, iterator);
+        this.iterators.set(iteratorId, iterator);
         return true;
       }
       case 'async-iterator-next': {
         const { iteratorId, value } = message.payload;
-        const iterator = iterators.get(iteratorId);
+        const iterator = this.iterators.get(iteratorId);
 
         if (!iterator) {
           throw new Error('Iterator not found for id: ' + iteratorId);
@@ -100,7 +106,7 @@ export function asyncIterationServicePlugin() {
         iterator.next(value).then(
           ({ value, done }) => {
             if (done) {
-              iterators.delete(iteratorId);
+              this.iterators.delete(iteratorId);
             }
             connection.send({
               type: 'async-iterator-result',
@@ -112,7 +118,7 @@ export function asyncIterationServicePlugin() {
             });
           },
           (error) => {
-            iterators.delete(iteratorId);
+            this.iterators.delete(iteratorId);
             connection.send({
               type: 'async-iterator-error',
               payload: {
@@ -126,13 +132,13 @@ export function asyncIterationServicePlugin() {
       }
       case 'async-iterator-throw': {
         const { iteratorId, reason } = message.payload;
-        const iterator = iterators.get(iteratorId);
+        const iterator = this.iterators.get(iteratorId);
 
         if (!iterator) {
           throw new Error('Iterator not found for id: ' + iteratorId);
         }
 
-        iterators.delete(iteratorId);
+        this.iterators.delete(iteratorId);
 
         if (typeof iterator.throw !== 'function') {
           throw new Error('Iterator does not support throw');
@@ -154,13 +160,13 @@ export function asyncIterationServicePlugin() {
       case 'async-iterator-return': {
         const { iteratorId, value } = message.payload;
 
-        const iterator = iterators.get(iteratorId);
+        const iterator = this.iterators.get(iteratorId);
 
         if (!iterator) {
           throw new Error('Iterator not found for id: ' + iteratorId);
         }
 
-        iterators.delete(iteratorId);
+        this.iterators.delete(iteratorId);
 
         if (typeof iterator.return !== 'function') {
           throw new Error('Iterator does not support return');
@@ -181,22 +187,24 @@ export function asyncIterationServicePlugin() {
       }
       case 'async-iterator-gc': {
         const { iteratorId } = message.payload;
-        iterators.delete(iteratorId);
+        this.iterators.delete(iteratorId);
         return true;
       }
     }
 
     return false;
-  };
+  }
 }
 
-export function asyncIterationClientPlugin() {
-  const refs = new Map<string, WeakRef<AsyncIterator<any>>>();
+export const asyncIterationServicePlugin = new AsyncIterationServicePlugin();
 
-  const cleanRefs = (connection: ServiceConnection) => {
-    for (const [iteratorId, ref] of refs) {
+export class AsyncIterationClientPlugin implements ClientPlugin {
+  private refs = new Map<string, WeakRef<AsyncIterator<any>>>();
+
+  private cleanRefs(connection: ServiceConnection) {
+    for (const [iteratorId, ref] of this.refs) {
       if (!ref.deref()) {
-        refs.delete(iteratorId);
+        this.refs.delete(iteratorId);
         connection.send({
           type: 'async-iterator-gc',
           payload: {
@@ -205,20 +213,21 @@ export function asyncIterationClientPlugin() {
         });
       }
     }
-  };
+  }
 
-  let scheduledCleanRefs = 0;
-  const scheduleCleanRefs = (connection: ServiceConnection) => {
-    if (scheduledCleanRefs !== 0 || refs.size === 0) return;
+  private scheduledCleanRefs = 0;
 
-    scheduledCleanRefs = requestIdleCallback(() => {
-      scheduledCleanRefs = 0;
-      cleanRefs(connection);
+  private scheduleCleanRefs(connection: ServiceConnection) {
+    if (this.scheduledCleanRefs !== 0 || this.refs.size === 0) return;
+
+    this.scheduledCleanRefs = requestIdleCallback(() => {
+      this.scheduledCleanRefs = 0;
+      this.cleanRefs(connection);
     });
-  };
+  }
 
-  return (method: string, connection: ServiceConnection) => {
-    scheduleCleanRefs(connection);
+  findHandler(method: string, connection: ServiceConnection) {
+    this.scheduleCleanRefs(connection);
 
     if (!method.startsWith('iterate')) {
       return;
@@ -329,12 +338,14 @@ export function asyncIterationClientPlugin() {
         },
       };
 
-      refs.set(iteratorId, new WeakRef(iterator));
+      this.refs.set(iteratorId, new WeakRef(iterator));
 
       return iterator;
     };
-  };
+  }
 }
+
+export const asyncIterationClientPlugin = new AsyncIterationClientPlugin();
 
 class Deferred<T> {
   promise: Promise<T>;
