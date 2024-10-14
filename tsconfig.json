@@ -2,6 +2,9 @@
   "extends": "./tsconfig.base.json",
   "compileOnSave": false,
   "files": [],
+  "compilerOptions": {
+    "baseUrl": "."
+  },
   "references": [
     { "path": "./packages/core" },
     { "path": "./packages/demo-app-e2e" },

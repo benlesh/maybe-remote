@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": ".",
     "allowJs": true,
     "outDir": "dist",
     "module": "NodeNext",
