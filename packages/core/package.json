@@ -7,7 +7,6 @@
   "type": "commonjs",
   "main": "./dist/index.js",
   "typings": "./dist/index.d.ts",
-
   "nx": {
     "name": "core",
     "targets": {
