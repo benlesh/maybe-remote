@@ -84,4 +84,58 @@ async function main() {
 
 ## @maybe-remote/rxjs
 
-TODO: Still building this out.
+This package is a plugin to provide support for service methods returning RxJS-style observables across thread boundaries.
+
+Assuming you're already using `@maybe-remote/core` as shown above, adding RxJS observables is as follows:
+
+**Step 1**: Install the plugin package and rxjs
+
+```sh
+npm i -S @maybe-remote/rxjs rxjs
+```
+
+**Step 2**: Write a function that returns an RxJS observable. The method should be prefixed with `when`. For example `whenDataArrives` or the like.
+
+```ts
+// my-service.ts
+import { interval } from 'rxjs';
+
+export function whenIntervalFires(delay: number) {
+  return interval(delay);
+}
+```
+
+**Step 3**: Add the plugin to the service
+
+```ts
+// my-worker.ts
+import { createPostMessageService } from '@maybe-remote/core';
+import * as ServiceDefinition from './my-service.ts';
+import { rxjsServicePlugin } from '@maybe-remote/rxjs';
+
+createPostMessageService({
+  target: globalThis,
+  def: ServiceDefinition,
+  servicePlugins: [rxjsServicePlugin()],
+});
+```
+
+**Step 4**: Add the plugin to the client
+
+```ts
+// client.ts
+import { createPostMessageClient } from '@maybe-remote/core';
+import type * as ServiceDefinition from './my-service.ts';
+import { rxjsClientPlugin } from '@maybe-remote/rxjs';
+import { take } from 'rxjs';
+
+const worker = new Worker('./dist/my-worker.js');
+
+const client = createPostMessageClient<ServiceDefinition>({
+  target: worker,
+  plugins: [rxjsClientPlugin()],
+});
+
+// Logs a number once a second for 5 numbers
+client.whenInterval(1000).pipe(take(5)).subscribe(console.log);
+```
