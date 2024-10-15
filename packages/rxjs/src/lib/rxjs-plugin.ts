@@ -248,18 +248,20 @@ export class RxJSClientPlugin implements ClientPlugin {
 
     if (method.startsWith('stream')) {
       return (...params: any[]) => {
-        const subscriptionId = crypto.randomUUID();
+        const observableId = crypto.randomUUID();
 
         connection.send({
           type: 'rxjs-get',
           payload: {
-            subscriptionId,
+            observableId,
             method,
             params,
           },
         });
 
         const observable = new Observable<any>((subscriber) => {
+          const subscriptionId = crypto.randomUUID();
+
           const dispose = connection.onMessage((message) => {
             switch (message.type) {
               case 'rxjs-next': {
@@ -296,12 +298,13 @@ export class RxJSClientPlugin implements ClientPlugin {
           connection.send({
             type: 'rxjs-subscribe',
             payload: {
+              observableId,
               subscriptionId,
             },
           });
         });
 
-        this.refs.set(subscriptionId, new WeakRef(observable));
+        this.refs.set(observableId, new WeakRef(observable));
 
         return observable;
       };
